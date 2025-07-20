@@ -21,6 +21,15 @@ spec:
         env:
         - name: DOCKER_HOST
           value: tcp://localhost:2375
+        - name: BUILDKIT_DAEMON
+          value: ""
+        - name: REGISTRY_URL
+          value: ""
+        - name: DOCKERFILE_PATH
+          value: ""
+        - name: IMAGE_NAME
+          value:  ""
+
         volumeMounts:
         - name: local-volume
           mountPath: /app
