@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: golang-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: golang-app
+  template:
+    metadata:
+      labels:
+        app: golang-app
+    spec:
+      containers:
+      - name: golang-container
+        image: localhost:5000/test/ubuntu-go-docker
+        #image: golang:1.24
+        command: ["/bin/bash", "-c","sleep infinity"]
+        imagePullPolicy: Always
+        env:
+        - name: DOCKER_HOST
+          value: tcp://localhost:2375
+        volumeMounts:
+        - name: local-volume
+          mountPath: /app
+
+      - name: docker-engine
+        image: docker:20.10.24-dind
+        securityContext:
+          privileged: true
+        ports:
+        - containerPort: 2375
+        env:
+        - name: DOCKER_TLS_CERTDIR
+          value: ""
+      volumes:
+      - name: local-volume
+        hostPath:
+          path: /mnt/mydata
+          type: Directory
