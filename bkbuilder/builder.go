@@ -11,7 +11,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func (bkbuilder *BkBuilder) BuildFromDockerfile(ctx context.Context, bkclient *client.Client, folderPath string, dockerFilename string, imageUrl string) error {
+func (bkbuilder *BkBuilder) BuildFromDockerfile(ctx context.Context, folderPath string, dockerFilename string, imageUrl string) error {
 	ctxFS, err := fsutil.NewFS(folderPath)
 	if err != nil {
 		return fmt.Errorf("failed to create FS for context %+w", err)
@@ -66,7 +66,7 @@ func (bkbuilder *BkBuilder) BuildFromDockerfile(ctx context.Context, bkclient *c
 	}()
 	var res *client.SolveResponse
 	eg.Go(func() error {
-		res, err = bkclient.Solve(ctx, nil, opt, statusCh)
+		res, err = bkbuilder.Client.Solve(ctx, nil, opt, statusCh)
 		if err != nil {
 			return fmt.Errorf("failed to build image %+w", err)
 		}
