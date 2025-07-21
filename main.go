@@ -7,6 +7,8 @@ import (
 
 	"invbuildkit/bkbuilder"
 	"invbuildkit/buildkitconfig"
+
+	"github.com/moby/buildkit/client"
 )
 
 func main() {
@@ -21,8 +23,9 @@ func main() {
 	BkBuilder := bkbuilder.NewBkBuilder(ctx, argsParsed.Daemon)
 	defer BkBuilder.Close()
 
+	statusCh := make(chan *client.SolveStatus)
 	go func() {
-		for status := range BkBuilder.StatusCh {
+		for status := range statusCh {
 			for _, v := range status.Vertexes {
 				fmt.Printf("📄 v.Cached=%t v.Name=%s v.Digest=%+v v.Error=%+s v.Inputs=%+v\n", v.Cached, v.Name, v.Digest, v.Error, v.Inputs)
 			}
@@ -34,9 +37,10 @@ func main() {
 	}()
 
 	fmt.Printf("✅ Starting to build image %s\n", argsParsed.ImageUrl)
-	err = BkBuilder.BuildFromDockerfile(context.Background(), argsParsed.FolderPath, argsParsed.DockerfileName, argsParsed.ImageUrl)
+	err = BkBuilder.BuildFromDockerfile(context.Background(), statusCh, argsParsed.FolderPath, argsParsed.DockerfileName, argsParsed.ImageUrl)
 	if err != nil {
 		panic(fmt.Sprintf("❌ Falied to build image due err: %+v", err))
 	}
 	fmt.Println("✅ Image built and pushed successfully!")
+
 }

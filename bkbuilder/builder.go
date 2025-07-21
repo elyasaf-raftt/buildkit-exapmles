@@ -10,7 +10,7 @@ import (
 	"github.com/tonistiigi/fsutil"
 )
 
-func (bkbuilder *BkBuilder) BuildFromDockerfile(ctx context.Context, folderPath string, dockerFilename string, imageUrl string) error {
+func (bkbuilder *BkBuilder) BuildFromDockerfile(ctx context.Context, statusCh chan *client.SolveStatus, folderPath string, dockerFilename string, imageUrl string) error {
 	ctxFS, err := fsutil.NewFS(folderPath)
 	if err != nil {
 		return fmt.Errorf("failed to create FS for context %+w", err)
@@ -48,7 +48,7 @@ func (bkbuilder *BkBuilder) BuildFromDockerfile(ctx context.Context, folderPath 
 		opt.Session = append(opt.Session, bkbuilder.authProvider)
 	}
 
-	res, err := bkbuilder.Client.Solve(ctx, nil, opt, bkbuilder.StatusCh)
+	res, err := bkbuilder.Client.Solve(ctx, nil, opt, statusCh)
 	if err != nil {
 		return fmt.Errorf("failed to build image %+w", err)
 	}
