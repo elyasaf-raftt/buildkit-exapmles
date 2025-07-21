@@ -14,6 +14,7 @@ import (
 type BkBuilder struct {
 	authProvider session.Attachable
 	Client       *client.Client
+	StatusCh     chan *client.SolveStatus
 }
 
 func NewBkBuilder(ctx context.Context, buildkitDaemon string) *BkBuilder {
@@ -27,6 +28,7 @@ func NewBkBuilder(ctx context.Context, buildkitDaemon string) *BkBuilder {
 	BkBuilder := BkBuilder{
 		authProvider: authprovider.NewDockerAuthProvider(authprovider.DockerAuthProviderConfig{ConfigFile: cfg}),
 		Client:       bkClient,
+		StatusCh:     make(chan *client.SolveStatus),
 	}
 
 	return &BkBuilder
