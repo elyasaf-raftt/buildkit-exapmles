@@ -25,10 +25,12 @@ spec:
           value: ""
         - name: REGISTRY_URL
           value: ""
-        - name: DOCKERFILE_PATH
+        - name: DOCKERFILE_NAME
           value: ""
         - name: IMAGE_NAME
-          value:  ""
+          value: ""
+        - name: FOLDER_PATH
+          value: ""
 
         volumeMounts:
         - name: local-volume

@@ -9,23 +9,20 @@ import (
 
 	"github.com/docker/cli/cli/config/configfile"
 	"github.com/docker/cli/cli/config/types"
-	"github.com/moby/buildkit/client"
-	"github.com/moby/buildkit/session"
-	"github.com/moby/buildkit/session/auth/authprovider"
-	"github.com/tonistiigi/fsutil"
 )
 
 type Config struct {
 	Ctx              context.Context
 	Daemon           string
 	RegistryUrl      string
-	DockerfilePath   string
+	DockerfileName   string
+	ImageUrl         string
 	ImageName        string
-	Image            string
 	DockerConfigFile *configfile.ConfigFile
+	FolderPath       string
 }
 
-func GetConfig() (Config, error) {
+func ParseArgs() (Config, error) {
 	ctx := context.Background()
 
 	args := os.Args[1:] // Skip the program name
@@ -56,22 +53,34 @@ func GetConfig() (Config, error) {
 		return Config{}, fmt.Errorf("missing registryUrl set it with env REGISTRY_URL or pass it as args registry-url=<registry-url>")
 	}
 
-	dockerfilePath := os.Getenv("DOCKERFILE_PATH")
-	if params["dockerfile-path"] != "" {
-		dockerfilePath = params["dockerfile-path"]
+	dockerfileName := os.Getenv("DOCKERFILE_NAME")
+	if params["dockerfile-name"] != "" {
+		dockerfileName = params["dockerfile-name"]
 	}
-	if dockerfilePath == "" {
-		dockerfilePath = "Dockerfile"
-		slog.Info("uses default: dockerfile ./Dockerfile")
-
+	if dockerfileName == "" {
+		dockerfileName = "Dockerfile"
+		slog.Info("use default: dockerfile Dockerfile")
 	}
 
-	ImageName := os.Getenv("IMAGE_NAME")
+	folderPath := os.Getenv("FOLDER_PATH")
+	if params["folder-path"] != "" {
+		folderPath = params["folder-path"]
+	}
+	if folderPath == "" {
+		dir, err := os.Getwd()
+		if err != nil {
+			return Config{}, fmt.Errorf("missing buildkit folder path: failed to get the current path set it with env  FOLDER_PATH or pass it as args folder-path=<folder_path> %+w", err)
+		}
+		folderPath = dir
+		slog.Info("use default: folder-path", slog.String("folder-path", dir))
+	}
+
+	imageName := os.Getenv("IMAGE_NAME")
 	if params["image-name"] != "" {
-		ImageName = params["image-name"]
+		imageName = params["image-name"]
 	}
-	if ImageName == "" {
-		ImageName = "test"
+	if imageName == "" {
+		imageName = "test"
 		slog.Info("used default: imageName test")
 	}
 
@@ -79,8 +88,10 @@ func GetConfig() (Config, error) {
 		Ctx:            ctx,
 		Daemon:         buildkitDaemon,
 		RegistryUrl:    registryUrl,
-		DockerfilePath: dockerfilePath,
-		Image:          fmt.Sprintf("%s/%s", registryUrl, strings.TrimPrefix(ImageName, "/")),
+		DockerfileName: dockerfileName,
+		ImageUrl:       fmt.Sprintf("%s/%s", registryUrl, strings.TrimPrefix(imageName, "/")),
+		ImageName:      imageName,
+		FolderPath:     folderPath,
 	}
 
 	username := os.Getenv("USERNAME")
@@ -105,49 +116,4 @@ func GetConfig() (Config, error) {
 	}
 
 	return config, nil
-}
-
-func GetSolveOptForDockerfile(buildkitConfig Config) (client.SolveOpt, error) {
-
-	ctxFS, err := fsutil.NewFS(".")
-	if err != nil {
-		return client.SolveOpt{}, fmt.Errorf("failed to create FS for context %+w", err)
-	}
-
-	opt := client.SolveOpt{
-		Frontend: "dockerfile.v0",
-		LocalMounts: map[string]fsutil.FS{
-			"context":    ctxFS,
-			"dockerfile": ctxFS,
-		},
-
-		FrontendAttrs: map[string]string{
-			"filename": buildkitConfig.DockerfilePath,
-		},
-		Exports: []client.ExportEntry{
-			{
-				Type: "image",
-				Attrs: map[string]string{
-					"name":              buildkitConfig.Image,
-					"push":              "true",
-					"compression-level": "1",
-					"registry.insecure": "true",
-				},
-			},
-		},
-	}
-
-	sess, err := session.NewSession(buildkitConfig.Ctx, "build from docker file")
-	if err != nil {
-		return client.SolveOpt{}, fmt.Errorf("failed to extablish builkdit clinet session %+w", err)
-	}
-	if buildkitConfig.DockerConfigFile != nil {
-		authProvider := authprovider.NewDockerAuthProvider(authprovider.DockerAuthProviderConfig{
-			ConfigFile: buildkitConfig.DockerConfigFile,
-		})
-		sess.Allow(authProvider)
-		opt.Session = append(opt.Session, authProvider)
-	}
-
-	return opt, nil
 }
