@@ -42,7 +42,9 @@ func ParseArgs() (Config, error) {
 		buildkitDaemon = params["buildkit-daemon"]
 	}
 	if buildkitDaemon == "" {
-		return Config{}, fmt.Errorf("missing buildkit deamon set it with env BUILDKIT_DAEMON or pass it as args buildkit-daemon=<buildkit_daemon>")
+		buildkitDaemon = "tcp://localhost:1234"
+		slog.Info("use default: buildkit Daemon tcp://localhost:1234")
+		// return Config{}, fmt.Errorf("missing buildkit deamon set it with env BUILDKIT_DAEMON or pass it as args buildkit-daemon=<buildkit_daemon>")
 	}
 
 	registryUrl := os.Getenv("REGISTRY_URL")
@@ -50,7 +52,9 @@ func ParseArgs() (Config, error) {
 		registryUrl = params["registry-url"]
 	}
 	if registryUrl == "" {
-		return Config{}, fmt.Errorf("missing registryUrl set it with env REGISTRY_URL or pass it as args registry-url=<registry-url>")
+		registryUrl = "raftt-image-registry.raftt.svc.cluster.local:80"
+		slog.Info("use default: registry Url raftt-image-registry.raftt.svc.cluster.local:80")
+		// return Config{}, fmt.Errorf("missing registryUrl set it with env REGISTRY_URL or pass it as args registry-url=<registry-url>")
 	}
 
 	dockerfileName := os.Getenv("DOCKERFILE_NAME")
@@ -58,7 +62,7 @@ func ParseArgs() (Config, error) {
 		dockerfileName = params["dockerfile-name"]
 	}
 	if dockerfileName == "" {
-		dockerfileName = "Dockerfile"
+		dockerfileName = "Dockerfile-test"
 		slog.Info("use default: dockerfile Dockerfile")
 	}
 
@@ -81,7 +85,7 @@ func ParseArgs() (Config, error) {
 	}
 	if imageName == "" {
 		imageName = "test"
-		slog.Info("used default: imageName test")
+		slog.Info("use default: imageName test")
 	}
 
 	config := Config{
