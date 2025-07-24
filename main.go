@@ -2,31 +2,56 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"log/slog"
-
 	"invbuildkit/bkbuilder"
 	"invbuildkit/buildkitconfig"
+	"log/slog"
+	"os"
 )
 
 func main() {
+	ctx := context.Background()
 
 	argsParsed, err := buildkitconfig.ParseArgs()
-
 	if err != nil {
 		slog.Error("Failed to config buildkit daemon due", slog.String("error", err.Error()))
 	}
 
-	ctx := argsParsed.Ctx
-	BkBuilder := bkbuilder.NewBkBuilder(ctx, argsParsed.Daemon)
-	defer BkBuilder.Close()
+	fmt.Println("initializing buildkit")
 
-	fmt.Printf("✅ Starting to build image %s\n", argsParsed.ImageUrl)
-	buildResult, err := BkBuilder.BuildFromDockerfile(context.Background(), argsParsed.FolderPath, argsParsed.DockerfileName, argsParsed.ImageUrl, nil)
+	builder, err := bkbuilder.New(ctx)
 	if err != nil {
-		panic(fmt.Sprintf("❌ Falied to build image due err: %+v", err))
+		handleErr(err)
 	}
-	fmt.Printf("BuildResult=%+v", buildResult)
-	fmt.Println("✅ Image built and pushed successfully!")
+	defer builder.Close()
 
+	fmt.Println("sending build")
+	buildResult, err := builder.BuildFromDockerfile(ctx, argsParsed.FolderPath, argsParsed.FolderPath, argsParsed.ImageName)
+	if err != nil {
+		handleErr(err)
+	}
+	fmt.Println("waiting for build")
+	buildResult.Wait()
+	if buildResult.Error != nil {
+		fmt.Println("*********** Build Failed **************")
+		handleErr(buildResult.Error)
+	}
+	for _, l := range buildResult.Logs {
+		fmt.Println(l)
+	}
+}
+
+func handleErr(err error) {
+	origErr := err
+	for {
+		nextErr := errors.Unwrap(origErr)
+		if nextErr != nil {
+			origErr = nextErr
+		} else {
+			break
+		}
+	}
+	slog.Error(err.Error(), slog.String("ErrorType", fmt.Sprintf("%T", origErr)))
+	os.Exit(1)
 }

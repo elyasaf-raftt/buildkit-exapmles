@@ -23,6 +23,7 @@ type BuildResult struct {
 
 func (res *BuildResult) Wait() {
 	for {
+		fmt.Print("waiting\n")
 		time.Sleep(time.Second * 1)
 		if res.Done {
 			return
@@ -31,12 +32,11 @@ func (res *BuildResult) Wait() {
 }
 
 func (res *BuildResult) updateSolveResult(response *client.SolveResponse, err error) {
-
 	res.Done = true
 	if err != nil {
-		status := status.Convert(err)
+		statusConvert := status.Convert(err)
 
-		switch status.Code() {
+		switch statusConvert.Code() {
 		case codes.Unavailable:
 			res.Error = fmt.Errorf("%w: %w", ErrBuildFailedUserIssue, err)
 		default:
