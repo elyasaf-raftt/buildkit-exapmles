@@ -1,11 +1,14 @@
 package bkbuilder
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/moby/buildkit/client"
+	"github.com/moby/buildkit/solver/errdefs"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -15,11 +18,11 @@ var ErrBuildFailedUnknown = errors.New("image build failed due to an Unknown err
 var ErrBuildFailedUserIssue = errors.New("image build failed, review the error, logs your Dockerfile")
 
 type BuildResult struct {
-	Error     error
-	Done      bool
-	Blah      map[string]string
-	Logs      []string
-	LineError string
+	Error         error
+	Done          bool
+	Blah          map[string]string
+	Logs          []string
+	ErrorFromFile bytes.Buffer
 }
 
 func (res *BuildResult) Wait() {
@@ -35,15 +38,30 @@ func (res *BuildResult) Wait() {
 func (res *BuildResult) updateSolveResult(response *client.SolveResponse, err error) {
 	defer func() { res.Done = true }()
 	if err != nil {
-		statusConvert := status.Convert(err)
 
+		for _, s := range errdefs.Sources(err) {
+			res.Error = fmt.Errorf("%w: %w", ErrBuildFailedUserIssue, err)
+			s.Print(&res.ErrorFromFile)
+			return
+		}
+		if strings.Contains(err.Error(), "no such file or directory") {
+			res.Error = fmt.Errorf("%w: %w", ErrBuildFailedUserIssue, err)
+			return
+		}
+		if strings.Contains(err.Error(), "the Dockerfile cannot be empty") {
+			res.Error = fmt.Errorf("%w: %w", ErrBuildFailedUserIssue, err)
+			return
+		}
+
+		statusConvert := status.Convert(err)
 		switch statusConvert.Code() {
 		case codes.Unavailable:
-			res.Error = fmt.Errorf("%w: %w", ErrBuildFailedUserIssue, err)
+			res.Error = fmt.Errorf("%w: %w", ErrBuildFailedAdminIssue, err)
 		default:
 			res.Error = fmt.Errorf("%w: %w", ErrBuildFailedUnknown, err)
 		}
 	}
+
 	if response != nil {
 		res.Blah = response.ExporterResponse
 	}
@@ -51,11 +69,8 @@ func (res *BuildResult) updateSolveResult(response *client.SolveResponse, err er
 
 func (res *BuildResult) updateStatus(statusCh chan *client.SolveStatus) {
 	for status := range statusCh {
-		for _, vertex := range status.Vertexes {
-
-			if vertex.Error != "" {
-				res.LineError = fmt.Sprintf("------\n> %s:\n  %s\n------", vertex.Name, vertex.Error)
-			}
+		for _, v := range status.Vertexes {
+			res.Logs = append(res.Logs, v.Name)
 		}
 	}
 }

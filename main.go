@@ -33,14 +33,13 @@ func main() {
 	}
 	fmt.Println("waiting for build")
 	buildResult.Wait()
-	if buildResult.LineError != "" {
-		fmt.Println(buildResult.LineError)
-	}
+
 	for _, l := range buildResult.Logs {
 		fmt.Println(l)
 	}
 	if buildResult.Error != nil {
 		fmt.Println("*********** Build Failed **************")
+		fmt.Println(buildResult.ErrorFromFile.String())
 		handleErr(buildResult.Error)
 	}
 }
