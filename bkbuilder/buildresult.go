@@ -33,7 +33,7 @@ func (res *BuildResult) Wait() {
 }
 
 func (res *BuildResult) updateSolveResult(response *client.SolveResponse, err error) {
-	res.Done = true
+	defer func() { res.Done = true }()
 	if err != nil {
 		statusConvert := status.Convert(err)
 
