@@ -27,18 +27,21 @@ func main() {
 	defer builder.Close()
 
 	fmt.Println("sending build")
-	buildResult, err := builder.BuildFromDockerfile(ctx, argsParsed.FolderPath, argsParsed.FolderPath, argsParsed.ImageName)
+	buildResult, err := builder.BuildFromDockerfile(ctx, argsParsed.FolderPath, "Dockerfile-test", argsParsed.ImageName)
 	if err != nil {
 		handleErr(err)
 	}
 	fmt.Println("waiting for build")
 	buildResult.Wait()
-	if buildResult.Error != nil {
-		fmt.Println("*********** Build Failed **************")
-		handleErr(buildResult.Error)
+	if buildResult.LineError != "" {
+		fmt.Println(buildResult.LineError)
 	}
 	for _, l := range buildResult.Logs {
 		fmt.Println(l)
+	}
+	if buildResult.Error != nil {
+		fmt.Println("*********** Build Failed **************")
+		handleErr(buildResult.Error)
 	}
 }
 

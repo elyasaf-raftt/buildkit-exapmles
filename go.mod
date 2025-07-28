@@ -2,13 +2,11 @@ module invbuildkit
 
 go 1.23.0
 
-toolchain go1.24.4
-
 require (
 	github.com/docker/cli v28.3.0+incompatible
 	github.com/moby/buildkit v0.23.1
 	github.com/tonistiigi/fsutil v0.0.0-20250605211040-586307ad452f
-	golang.org/x/sync v0.16.0
+	google.golang.org/grpc v1.72.2
 )
 
 require (
@@ -24,7 +22,6 @@ require (
 	github.com/containerd/ttrpc v1.2.7 // indirect
 	github.com/containerd/typeurl/v2 v2.2.3 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
-	github.com/docker/docker v28.3.2+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.9.3 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
@@ -37,7 +34,6 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.1 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
-	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/in-toto/in-toto-golang v0.9.0 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
@@ -68,12 +64,12 @@ require (
 	golang.org/x/crypto v0.37.0 // indirect
 	golang.org/x/mod v0.26.0 // indirect
 	golang.org/x/net v0.39.0 // indirect
+	golang.org/x/sync v0.16.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/text v0.24.0 // indirect
 	golang.org/x/time v0.11.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250218202821-56aae31c358a // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250218202821-56aae31c358a // indirect
-	google.golang.org/grpc v1.72.2 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 	gotest.tools/v3 v3.5.2 // indirect
 )

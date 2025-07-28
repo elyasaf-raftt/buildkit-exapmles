@@ -11,14 +11,15 @@ import (
 )
 
 var ErrBuildFailedAdminIssue = errors.New("image build failed due to an infrastructure issue")
-var ErrBuildFailedUnknown = errors.New("image build failed due to an anknown error")
+var ErrBuildFailedUnknown = errors.New("image build failed due to an Unknown error")
 var ErrBuildFailedUserIssue = errors.New("image build failed, review the error, logs your Dockerfile")
 
 type BuildResult struct {
-	Error error
-	Done  bool
-	Blah  map[string]string
-	Logs  []string
+	Error     error
+	Done      bool
+	Blah      map[string]string
+	Logs      []string
+	LineError string
 }
 
 func (res *BuildResult) Wait() {
@@ -49,16 +50,12 @@ func (res *BuildResult) updateSolveResult(response *client.SolveResponse, err er
 }
 
 func (res *BuildResult) updateStatus(statusCh chan *client.SolveStatus) {
-	// Do Somthing
+	for status := range statusCh {
+		for _, vertex := range status.Vertexes {
 
-	// for status := range statusCh {
-	// 	for _, v := range status.Vertexes {
-	// 		fmt.Printf("📄 v.Cached=%t v.Name=%s v.Digest=%+v v.Error=%+s v.Inputs=%+v\n", v.Cached, v.Name, v.Digest, v.Error, v.Inputs)
-	// 	}
-	// 	for _, s := range status.Statuses {
-	// 		fmt.Printf("🔄 Status: Vertex=%s | ID=%s | Current=%d | Total=%d | Timestamp=%v\n",
-	// 			s.Vertex, s.ID, s.Current, s.Total, s.Timestamp)
-	// 	}
-	// }
-
+			if vertex.Error != "" {
+				res.LineError = fmt.Sprintf("------\n> %s:\n  %s\n------", vertex.Name, vertex.Error)
+			}
+		}
+	}
 }
