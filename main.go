@@ -27,7 +27,7 @@ func main() {
 	defer builder.Close()
 
 	fmt.Println("sending build")
-	buildResult, err := builder.BuildFromDockerfile(ctx, argsParsed.FolderPath, "Dockerfile-test", argsParsed.ImageName)
+	buildResult, err := builder.BuildFromDockerfile(ctx, argsParsed.FolderPath, "Dockerfile-test", argsParsed.ImageUrl)
 	if err != nil {
 		handleErr(err)
 	}

@@ -37,7 +37,7 @@ func ParseArgs() (Config, error) {
 		}
 	}
 
-	buildkitDaemon := os.Getenv("BUILDKIT_DAEMON")
+	buildkitDaemon := os.Getenv("DEDICATED_IMAGE_BUILDING_ADDRESS")
 	if params["buildkit-daemon"] != "" {
 		buildkitDaemon = params["buildkit-daemon"]
 	}
@@ -52,8 +52,9 @@ func ParseArgs() (Config, error) {
 		registryUrl = params["registry-url"]
 	}
 	if registryUrl == "" {
-		registryUrl = "raftt-image-registry.raftt.svc.cluster.local:80"
-		slog.Info("use default: registry Url raftt-image-registry.raftt.svc.cluster.local:80")
+		// registryUrl = "raftt-image-registry.raftt.svc.cluster.local:80"
+		registryUrl = "localhost:5000"
+		slog.Info("use default: registry Url", slog.String("registry-url", registryUrl))
 		// return Config{}, fmt.Errorf("missing registryUrl set it with env REGISTRY_URL or pass it as args registry-url=<registry-url>")
 	}
 

@@ -21,14 +21,14 @@ spec:
         env:
         - name: DOCKER_HOST
           value: tcp://localhost:2375
-        - name: BUILDKIT_DAEMON
-          value: ""
+        - name: DEDICATED_IMAGE_BUILDING_ADDRESS
+          value: tcp://raftt-buildkit.raftt.svc.cluster.local:80
         - name: REGISTRY_URL
-          value: ""
+          value: "raftt-image-registry.raftt.svc.cluster.local:80"
         - name: DOCKERFILE_NAME
-          value: ""
+          value: "Dockerfile-test"
         - name: IMAGE_NAME
-          value: ""
+          value: "test"
         - name: FOLDER_PATH
           value: ""
 
