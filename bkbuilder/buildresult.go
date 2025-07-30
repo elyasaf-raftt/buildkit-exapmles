@@ -31,6 +31,7 @@ type BuildResult struct {
 	// ErrorFromFile hold the Dockerfile name and the line the error come from
 	ErrorFromFile bytes.Buffer
 	ImageUrl      string
+	ImageDigest   string
 }
 
 // Wait until the build process done
@@ -84,6 +85,7 @@ func (res *BuildResult) updateSolveResult(response *client.SolveResponse, err er
 
 	if response != nil {
 		res.Blah = response.ExporterResponse
+		res.ImageDigest = response.ExporterResponse["containerimage.digest"]
 	}
 }
 

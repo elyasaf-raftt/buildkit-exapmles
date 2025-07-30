@@ -43,6 +43,8 @@ func main() {
 	for _, l := range buildResult.Logs {
 		fmt.Println(l)
 	}
+
+	fmt.Printf("Successful to build and push image\nUrl: %s\nDigest: %s\n", buildResult.ImageUrl, buildResult.ImageDigest)
 }
 
 func handleErr(err error) {
