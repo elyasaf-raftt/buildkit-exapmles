@@ -110,7 +110,9 @@ func isAdminIssue(err error) bool {
 	failedToPush := strings.Contains(err.Error(), "failed to do request")
 	// repository does not exist or may require authorization
 	accessDenied := strings.Contains(err.Error(), "push access denied")
-	return failedToPush || accessDenied
+	unauthorized := strings.Contains(err.Error(), "401 Unauthorized")
+
+	return failedToPush || accessDenied || unauthorized
 }
 
 // Look for specific cases to see if it's a admin issue

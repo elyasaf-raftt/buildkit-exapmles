@@ -1,22 +1,29 @@
 package bkbuilder
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log/slog"
 	"os"
 	"time"
 
+	"github.com/docker/cli/cli/config"
 	"github.com/moby/buildkit/client"
+	"github.com/moby/buildkit/session"
+	"github.com/moby/buildkit/session/auth/authprovider"
 	"github.com/tonistiigi/fsutil"
 	"google.golang.org/grpc"
 )
 
 // BkBuilder holds a global parameters that used for each build process
+// for private registries
+// the private registry configuration is loaded using  LoadDefaultConfigFile(io.Writer) from the "github.com/docker/cli/cli/config" package to connect to private registries
+// make sure your private registry exists in one of the default docker configuration files, such as ~/.docker/config.json
 type BkBuilder struct {
-	// Call LoadDefaultConfigFile(os.Stderr) from "github.com/docker/cli/cli/config" package
-	// to support private registries
-	// authProvider session.Attachable
+	// authProvider manages the private registries configurations
+	// hold Attachable object that return from moby/buildkit/session/auth/authprovider NewDockerAuthProvider function
+	authProvider session.Attachable
 	// holds buildkit client.
 	Client *client.Client
 }
@@ -42,14 +49,21 @@ func New(ctx context.Context) (*BkBuilder, error) {
 		return nil, fmt.Errorf("falied to initilaize buildkit client: %+w", err)
 	}
 
-	// ========= REMOVE MY AFTER THE authProvider IS UNCOMMENTED
-	// before turring on the authProvider feature, I need to investigate what we want do to with the paramter the passed to LoadDefaultConfigFile function
-	// =========
-	// cfg := config.LoadDefaultConfigFile(os.Stderr)
 	BkBuilder := BkBuilder{
-		// authProvider: authprovider.NewDockerAuthProvider(authprovider.DockerAuthProviderConfig{ConfigFile: cfg}),
 		Client: bkClient,
 	}
+
+	dockerFileWarning := bytes.Buffer{}
+	cfg := config.LoadDefaultConfigFile(&dockerFileWarning)
+	if dockerFileWarning.Len() != 0 {
+		slog.Warn("auth provider failed", slog.String("load configuration failed", dockerFileWarning.String()))
+	}
+	// running LoadDefaultConfigFile function `it initializes a default ConfigFile struct`.
+	// therefore we need to manually check if any configuration is loaded.
+	if len(cfg.AuthConfigs) != 0 || cfg.CredentialsStore != "" {
+		BkBuilder.authProvider = authprovider.NewDockerAuthProvider(authprovider.DockerAuthProviderConfig{ConfigFile: cfg})
+	}
+
 	return &BkBuilder, nil
 }
 
@@ -92,6 +106,10 @@ func (bk *BkBuilder) BuildFromDockerfile(ctx context.Context, folderPath string,
 				},
 			},
 		},
+	}
+
+	if bk.authProvider != nil {
+		solveOpt.Session = append(solveOpt.Session, bk.authProvider)
 	}
 
 	result := &BuildResult{
