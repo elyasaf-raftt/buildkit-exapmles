@@ -8,16 +8,22 @@ import (
 	"time"
 
 	"github.com/moby/buildkit/client"
-	"github.com/moby/buildkit/session"
 	"github.com/tonistiigi/fsutil"
 	"google.golang.org/grpc"
 )
 
+// BkBuilder holds a global parameters that used for each build process
 type BkBuilder struct {
-	authProvider session.Attachable
-	Client       *client.Client
+	// Call LoadDefaultConfigFile(os.Stderr) from "github.com/docker/cli/cli/config" package
+	// to support private registries
+	// authProvider session.Attachable
+	// holds buildkit client.
+	Client *client.Client
 }
 
+// the New function initial BkBuilder and return reference to the BkBuilder.
+// BkBuilder members that are initialized in the function:
+// 1. Client, initial with moby/buildkit client, Used DEDICATED_IMAGE_BUILDING_ADDRESS to connect to buildkit daemon, default 'tcp://localhost:1234'
 func New(ctx context.Context) (*BkBuilder, error) {
 
 	buildkitClientOpts := []client.ClientOpt{
@@ -36,6 +42,9 @@ func New(ctx context.Context) (*BkBuilder, error) {
 		return nil, fmt.Errorf("falied to initilaize buildkit client: %+w", err)
 	}
 
+	// ========= REMOVE MY AFTER THE authProvider IS UNCOMMENTED
+	// before turring on the authProvider feature, I need to investigate what we want do to with the paramter the passed to LoadDefaultConfigFile function
+	// =========
 	// cfg := config.LoadDefaultConfigFile(os.Stderr)
 	BkBuilder := BkBuilder{
 		// authProvider: authprovider.NewDockerAuthProvider(authprovider.DockerAuthProviderConfig{ConfigFile: cfg}),
@@ -48,6 +57,9 @@ func (bkBuilder BkBuilder) Close() {
 	bkBuilder.Client.Close()
 }
 
+// Run build and push(always) from dockerfile.
+// the function return reference to BuildResult that caller can used with.
+// if dockerFilename paramater is empty the default 'Dockerfile' is used.
 func (bk *BkBuilder) BuildFromDockerfile(ctx context.Context, folderPath string, dockerFilename string, imageUrl string) (*BuildResult, error) {
 
 	buildContext, err := fsutil.NewFS(folderPath)
@@ -82,7 +94,9 @@ func (bk *BkBuilder) BuildFromDockerfile(ctx context.Context, folderPath string,
 		},
 	}
 
-	result := &BuildResult{}
+	result := &BuildResult{
+		ImageUrl: imageUrl,
+	}
 	statusChan := make(chan *client.SolveStatus)
 	go result.updateStatus(statusChan)
 	go func() {

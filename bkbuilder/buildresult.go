@@ -16,15 +16,24 @@ import (
 var ErrBuildFailedAdminIssue = errors.New("image build failed due to an infrastructure issue")
 var ErrBuildFailedUnknown = errors.New("image build failed due to an Unknown error")
 var ErrBuildFailedUserIssue = errors.New("image build failed, review the error, logs your Dockerfile")
+var ErrBuildFailedImageUrlIssue = errors.New("image push failed, review the error")
 
+// BuildResult hold the build result.
 type BuildResult struct {
-	Error         error
-	Done          bool
-	Blah          map[string]string
-	Logs          []string
+	// Error holds the error that is returned to the user.
+	Error error
+	// Done indicate that data writing is finished.
+	Done bool
+	Blah map[string]string
+	// Logs holds the Dockerfile build process logs
+	// those logs are the same as logs coming from the docker build cli
+	Logs []string
+	// ErrorFromFile hold the Dockerfile name and the line the error come from
 	ErrorFromFile bytes.Buffer
+	ImageUrl      string
 }
 
+// Wait until the build process done
 func (res *BuildResult) Wait() {
 	for {
 		fmt.Print("waiting\n")
@@ -35,12 +44,13 @@ func (res *BuildResult) Wait() {
 	}
 }
 
+// Function updateSolveResult get the buildkit client.Solve return values,
+// and looks at those values to indicate the issuer error
 func (res *BuildResult) updateSolveResult(response *client.SolveResponse, err error) {
 	defer func() { res.Done = true }()
 
 	if err != nil {
-
-		// If the sourceError length is greater than 1, this indicates a user issue
+		// if the sourceError length is greater than 1, this indicates a Dockerfile error and its a user issue
 		sourceError := errdefs.Sources(err)
 		if len(sourceError) > 0 {
 			res.Error = fmt.Errorf("%w: %w", ErrBuildFailedUserIssue, err)
@@ -50,16 +60,25 @@ func (res *BuildResult) updateSolveResult(response *client.SolveResponse, err er
 			return
 		}
 
+		// Convert the error to get the Grpc error code, https://grpc.io/docs/guides/status-codes/
 		statusConvert := status.Convert(err)
 		switch statusConvert.Code() {
+		// Connection failed its a admin issue
 		case codes.Unavailable:
 			res.Error = fmt.Errorf("%w: %w", ErrBuildFailedAdminIssue, err)
-		default:
-			if knownError(err) {
+		case codes.Unknown:
+			// even if the Grpc error it's Unknown sometime we can find the issuer error
+			if isUserIssue(err) {
 				res.Error = fmt.Errorf("%w: %w", ErrBuildFailedUserIssue, err)
+			} else if isAdminIssue(err) {
+				res.Error = fmt.Errorf("%w: %w", ErrBuildFailedAdminIssue, err)
+			} else if isImageUrlIssue(err) {
+				res.Error = fmt.Errorf("%w: %w", ErrBuildFailedImageUrlIssue, err)
 			} else {
 				res.Error = fmt.Errorf("%w: %w", ErrBuildFailedUnknown, err)
 			}
+		default:
+			res.Error = fmt.Errorf("%w: %w", ErrBuildFailedUnknown, err)
 		}
 	}
 
@@ -68,6 +87,7 @@ func (res *BuildResult) updateSolveResult(response *client.SolveResponse, err er
 	}
 }
 
+// Collecting logs to be used by who called this package
 func (res *BuildResult) updateStatus(statusCh chan *client.SolveStatus) {
 	for status := range statusCh {
 		for _, v := range status.Vertexes {
@@ -76,8 +96,26 @@ func (res *BuildResult) updateStatus(statusCh chan *client.SolveStatus) {
 	}
 }
 
-func knownError(err error) bool {
+// Look for specific cases to see if it's a user issue
+func isUserIssue(err error) bool {
 	noSuchError := strings.Contains(err.Error(), "no such file or directory")
 	emptyError := strings.Contains(err.Error(), "the Dockerfile cannot be empty")
+
 	return noSuchError || emptyError
+}
+
+// Look for specific cases to see if it's a admin issue
+func isAdminIssue(err error) bool {
+	// connection refused
+	failedToPush := strings.Contains(err.Error(), "failed to do request")
+	// repository does not exist or may require authorization
+	accessDenied := strings.Contains(err.Error(), "push access denied")
+	return failedToPush || accessDenied
+}
+
+// Look for specific cases to see if it's a admin issue
+func isImageUrlIssue(err error) bool {
+	// invalid image name
+	imageUrlError := strings.Contains(err.Error(), "invalid reference format")
+	return imageUrlError
 }
