@@ -32,7 +32,18 @@ func main() {
 		handleErr(err)
 	}
 	fmt.Println("waiting for build")
-	buildResult.Wait()
+
+	updateStatus := make(chan string, 1)
+	go func() {
+		for status := range updateStatus {
+			if status != "" {
+				fmt.Printf("%s\n", status)
+			}
+		}
+	}()
+	buildResult.WaitForStatus(updateStatus)
+	// buildResult.Wait()
+	close(updateStatus)
 
 	if buildResult.Error != nil {
 		fmt.Println("*********** Build Failed **************")
@@ -41,7 +52,9 @@ func main() {
 	}
 
 	for _, l := range buildResult.Logs {
-		fmt.Println(l)
+		// Do Somthing with logs
+		_ = l
+		// fmt.Println(l)
 	}
 
 	fmt.Printf("Successful to build and push image\nUrl: %s\nDigest: %s\n", buildResult.ImageUrl, buildResult.ImageDigest)

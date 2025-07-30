@@ -34,17 +34,6 @@ type BuildResult struct {
 	ImageDigest   string
 }
 
-// Wait until the build process done
-func (res *BuildResult) Wait() {
-	for {
-		fmt.Print("waiting\n")
-		time.Sleep(time.Second * 1)
-		if res.Done {
-			return
-		}
-	}
-}
-
 // Function updateSolveResult get the buildkit client.Solve return values,
 // and looks at those values to indicate the issuer error
 func (res *BuildResult) updateSolveResult(response *client.SolveResponse, err error) {
@@ -122,4 +111,36 @@ func isImageUrlIssue(err error) bool {
 	// invalid image name
 	imageUrlError := strings.Contains(err.Error(), "invalid reference format")
 	return imageUrlError
+}
+
+// Wait until the build process done
+func (res *BuildResult) Wait() {
+	for {
+		fmt.Print("waiting\n")
+		time.Sleep(time.Second * 1)
+		if res.Done {
+			return
+		}
+	}
+}
+
+// WaitForStatus its same as Wait function,
+// but the WaitForStatus function get chan parameter and  send the status to the the chan every time the build status updated.
+func (res *BuildResult) WaitForStatus(status chan string) {
+	var current string
+	var last string
+
+	for {
+		if res.Done {
+			return
+		}
+		if len(res.Logs) == 0 {
+			continue
+		}
+		last = res.Logs[len(res.Logs)-1]
+		if last != current {
+			current = last
+			status <- last
+		}
+	}
 }
