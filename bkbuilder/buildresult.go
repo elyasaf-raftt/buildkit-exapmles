@@ -37,19 +37,16 @@ func (res *BuildResult) Wait() {
 
 func (res *BuildResult) updateSolveResult(response *client.SolveResponse, err error) {
 	defer func() { res.Done = true }()
+
 	if err != nil {
 
-		for _, s := range errdefs.Sources(err) {
+		// If the sourceError length is greater than 1, this indicates a user issue
+		sourceError := errdefs.Sources(err)
+		if len(sourceError) > 0 {
 			res.Error = fmt.Errorf("%w: %w", ErrBuildFailedUserIssue, err)
-			s.Print(&res.ErrorFromFile)
-			return
-		}
-		if strings.Contains(err.Error(), "no such file or directory") {
-			res.Error = fmt.Errorf("%w: %w", ErrBuildFailedUserIssue, err)
-			return
-		}
-		if strings.Contains(err.Error(), "the Dockerfile cannot be empty") {
-			res.Error = fmt.Errorf("%w: %w", ErrBuildFailedUserIssue, err)
+			for _, s := range sourceError {
+				s.Print(&res.ErrorFromFile)
+			}
 			return
 		}
 
@@ -58,7 +55,11 @@ func (res *BuildResult) updateSolveResult(response *client.SolveResponse, err er
 		case codes.Unavailable:
 			res.Error = fmt.Errorf("%w: %w", ErrBuildFailedAdminIssue, err)
 		default:
-			res.Error = fmt.Errorf("%w: %w", ErrBuildFailedUnknown, err)
+			if knownError(err) {
+				res.Error = fmt.Errorf("%w: %w", ErrBuildFailedUserIssue, err)
+			} else {
+				res.Error = fmt.Errorf("%w: %w", ErrBuildFailedUnknown, err)
+			}
 		}
 	}
 
@@ -73,4 +74,10 @@ func (res *BuildResult) updateStatus(statusCh chan *client.SolveStatus) {
 			res.Logs = append(res.Logs, v.Name)
 		}
 	}
+}
+
+func knownError(err error) bool {
+	noSuchError := strings.Contains(err.Error(), "no such file or directory")
+	emptyError := strings.Contains(err.Error(), "the Dockerfile cannot be empty")
+	return noSuchError || emptyError
 }
