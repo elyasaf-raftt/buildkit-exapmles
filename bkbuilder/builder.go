@@ -114,11 +114,20 @@ func (bk *BkBuilder) BuildFromDockerfile(ctx context.Context, folderPath string,
 
 	result := &BuildResult{
 		ImageUrl: imageUrl,
+		done:     make(chan any),
 	}
+
 	statusChan := make(chan *client.SolveStatus)
 	go result.updateStatus(statusChan)
+
+	// w, err := progresswriter.NewPrinter(ctx, os.Stderr, "plain")
+	// if err != nil {
+	// 	fmt.Printf("falied to create newPrinter err=%+v", w)
+	// }
+	// statusChan := w.Status()
 	go func() {
-		result.updateSolveResult(bk.Client.Solve(ctx, nil, solveOpt, statusChan))
+		res, err := bk.Client.Solve(ctx, nil, solveOpt, statusChan)
+		result.updateSolveResult(res, err)
 	}()
 	return result, nil
 }

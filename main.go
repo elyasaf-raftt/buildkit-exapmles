@@ -32,18 +32,7 @@ func main() {
 		handleErr(err)
 	}
 	fmt.Println("waiting for build")
-
-	updateStatus := make(chan string, 1)
-	go func() {
-		for status := range updateStatus {
-			if status != "" {
-				fmt.Printf("%s\n", status)
-			}
-		}
-	}()
-	buildResult.WaitForStatus(updateStatus)
-	// buildResult.Wait()
-	close(updateStatus)
+	buildResult.Wait()
 
 	if buildResult.Error != nil {
 		fmt.Println("*********** Build Failed **************")

@@ -24,6 +24,7 @@ type BuildResult struct {
 	Error error
 	// Done indicate that data writing is finished.
 	Done bool
+	done chan any
 	Blah map[string]string
 	// Logs holds the Dockerfile build process logs
 	// those logs are the same as logs coming from the docker build cli
@@ -37,7 +38,10 @@ type BuildResult struct {
 // Function updateSolveResult get the buildkit client.Solve return values,
 // and looks at those values to indicate the issuer error
 func (res *BuildResult) updateSolveResult(response *client.SolveResponse, err error) {
-	defer func() { res.Done = true }()
+	defer func() {
+		res.Done = true
+		close(res.done)
+	}()
 
 	if err != nil {
 		// if the sourceError length is greater than 1, this indicates a Dockerfile error and its a user issue
@@ -82,8 +86,14 @@ func (res *BuildResult) updateSolveResult(response *client.SolveResponse, err er
 func (res *BuildResult) updateStatus(statusCh chan *client.SolveStatus) {
 	for status := range statusCh {
 		for _, v := range status.Vertexes {
+			if len(status.Vertexes) > 1 {
+				continue
+			}
 			res.Logs = append(res.Logs, v.Name)
+			fmt.Printf("%+v\n", v.Name)
 		}
+		// jsonStatus, _ := json.Marshal(status)
+		// fmt.Printf("status=%+v\n", string(jsonStatus))
 	}
 }
 
@@ -118,29 +128,10 @@ func (res *BuildResult) Wait() {
 	for {
 		fmt.Print("waiting\n")
 		time.Sleep(time.Second * 1)
-		if res.Done {
+		_, ok := <-res.done
+		fmt.Printf("ok=%+v", ok)
+		if !ok {
 			return
-		}
-	}
-}
-
-// WaitForStatus its same as Wait function,
-// but the WaitForStatus function get chan parameter and  send the status to the the chan every time the build status updated.
-func (res *BuildResult) WaitForStatus(status chan string) {
-	var current string
-	var last string
-
-	for {
-		if res.Done {
-			return
-		}
-		if len(res.Logs) == 0 {
-			continue
-		}
-		last = res.Logs[len(res.Logs)-1]
-		if last != current {
-			current = last
-			status <- last
 		}
 	}
 }
