@@ -9,8 +9,9 @@ import (
 
 	"github.com/moby/buildkit/client"
 	"github.com/moby/buildkit/solver/errdefs"
+	"github.com/opencontainers/go-digest"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	grcpstatus "google.golang.org/grpc/status"
 )
 
 var ErrBuildFailedAdminIssue = errors.New("image build failed due to an infrastructure issue")
@@ -55,7 +56,7 @@ func (res *BuildResult) updateSolveResult(response *client.SolveResponse, err er
 		}
 
 		// Convert the error to get the Grpc error code, https://grpc.io/docs/guides/status-codes/
-		statusConvert := status.Convert(err)
+		statusConvert := grcpstatus.Convert(err)
 		switch statusConvert.Code() {
 		// Connection failed its a admin issue
 		case codes.Unavailable:
@@ -84,14 +85,27 @@ func (res *BuildResult) updateSolveResult(response *client.SolveResponse, err er
 
 // Collecting logs to be used by who called this package
 func (res *BuildResult) updateStatus(statusCh chan *client.SolveStatus) {
+
+	var buf bytes.Buffer
+	trace := &trace{
+		byDigest: make(map[digest.Digest]*vertex),
+		updates:  make(map[digest.Digest]struct{}),
+		w:        &buf,
+		groups:   make(map[string]*vertexGroup),
+	}
+
 	for status := range statusCh {
-		for _, v := range status.Vertexes {
-			if len(status.Vertexes) > 1 {
-				continue
-			}
-			res.Logs = append(res.Logs, v.Name)
-			fmt.Printf("%+v\n", v.Name)
+		trace.Update(status)
+		for _, l := range status.Logs {
+			fmt.Printf("log=%+v\n", string(l.Data))
 		}
+		// for _, v := range status.Vertexes {
+		// 	if len(status.Vertexes) > 1 {
+		// 		continue
+		// 	}
+		// 	res.Logs = append(res.Logs, v.Name)
+		// 	// fmt.Printf("%+v\n", v.Name)
+		// }
 		// jsonStatus, _ := json.Marshal(status)
 		// fmt.Printf("status=%+v\n", string(jsonStatus))
 	}

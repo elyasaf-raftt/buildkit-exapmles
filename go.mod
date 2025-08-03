@@ -5,6 +5,7 @@ go 1.23.0
 require (
 	github.com/docker/cli v28.3.0+incompatible
 	github.com/moby/buildkit v0.23.1
+	github.com/opencontainers/go-digest v1.0.0
 	github.com/tonistiigi/fsutil v0.0.0-20250605211040-586307ad452f
 	google.golang.org/grpc v1.72.2
 )
@@ -42,7 +43,6 @@ require (
 	github.com/moby/patternmatcher v0.6.0 // indirect
 	github.com/moby/sys/signal v0.7.1 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
-	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
