@@ -1,15 +1,21 @@
 package bkbuilder
 
 import (
+	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/moby/buildkit/client"
 	"github.com/moby/buildkit/solver/errdefs"
-	"github.com/opencontainers/go-digest"
+	"github.com/moby/buildkit/util/progress/progressui"
+	"github.com/morikuni/aec"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	grcpstatus "google.golang.org/grpc/status"
 )
@@ -30,7 +36,10 @@ type BuildResult struct {
 	// Logs holds the Dockerfile build process logs
 	// those logs are the same as logs coming from the docker build cli
 	Logs []string
-	// ErrorFromFile hold the Dockerfile name and the line the error come from
+	// Warnings collect warnings returned from the build process
+	// those warnings are the same as warnings coming from the docker build cli
+	Warnings []client.VertexWarning
+	// ErrorFromFile hold the Dockerfile name and the line the errors come from
 	ErrorFromFile bytes.Buffer
 	ImageUrl      string
 	ImageDigest   string
@@ -85,30 +94,29 @@ func (res *BuildResult) updateSolveResult(response *client.SolveResponse, err er
 
 // Collecting logs to be used by who called this package
 func (res *BuildResult) updateStatus(statusCh chan *client.SolveStatus) {
-
-	var buf bytes.Buffer
-	trace := &trace{
-		byDigest: make(map[digest.Digest]*vertex),
-		updates:  make(map[digest.Digest]struct{}),
-		w:        &buf,
-		groups:   make(map[string]*vertexGroup),
+	logsR, logsW := io.Pipe()
+	display, err := progressui.NewDisplay(logsW, progressui.PlainMode)
+	if err != nil {
+		panic(err)
 	}
 
-	for status := range statusCh {
-		trace.Update(status)
-		for _, l := range status.Logs {
-			fmt.Printf("log=%+v\n", string(l.Data))
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		statusWarn, _ := display.UpdateFrom(context.Background(), statusCh)
+		if len(statusWarn) > 0 {
+			res.Warnings = append(res.Warnings, statusWarn...)
 		}
-		// for _, v := range status.Vertexes {
-		// 	if len(status.Vertexes) > 1 {
-		// 		continue
-		// 	}
-		// 	res.Logs = append(res.Logs, v.Name)
-		// 	// fmt.Printf("%+v\n", v.Name)
-		// }
-		// jsonStatus, _ := json.Marshal(status)
-		// fmt.Printf("status=%+v\n", string(jsonStatus))
-	}
+	}()
+	go func() {
+		defer wg.Done()
+		scanner := bufio.NewScanner(logsR)
+		for scanner.Scan() {
+			res.Logs = append(res.Logs, scanner.Text())
+		}
+	}()
+	wg.Wait()
 }
 
 // Look for specific cases to see if it's a user issue
@@ -143,9 +151,47 @@ func (res *BuildResult) Wait() {
 		fmt.Print("waiting\n")
 		time.Sleep(time.Second * 1)
 		_, ok := <-res.done
-		fmt.Printf("ok=%+v", ok)
 		if !ok {
 			return
 		}
+	}
+}
+
+// PrintWarnings function print the BuildResult.Warnings same as https://github.com/docker/buildx/blob/1e50e8ddabe108f009b9925e13a321d7c8f99f26/commands/build.go#L740
+func (res *BuildResult) PrintWarnings(w io.Writer) {
+	warnings := res.Warnings
+	if len(warnings) == 0 {
+		return
+	}
+	fmt.Fprintf(w, "\n ")
+	sb := &bytes.Buffer{}
+	if len(warnings) == 1 {
+		fmt.Fprintf(sb, "1 warning found")
+	} else {
+		fmt.Fprintf(sb, "%d warnings found", len(warnings))
+	}
+
+	fmt.Fprintf(sb, ":\n")
+	fmt.Fprint(w, aec.Apply(sb.String(), aec.YellowF))
+
+	for _, warn := range warnings {
+		fmt.Fprintf(w, " - %s\n", warn.Short)
+		if logrus.GetLevel() < logrus.DebugLevel {
+			continue
+		}
+		for _, d := range warn.Detail {
+			fmt.Fprintf(w, "%s\n", d)
+		}
+		if warn.URL != "" {
+			fmt.Fprintf(w, "More info: %s\n", warn.URL)
+		}
+		if warn.SourceInfo != nil && warn.Range != nil {
+			src := errdefs.Source{
+				Info:   warn.SourceInfo,
+				Ranges: warn.Range,
+			}
+			src.Print(w)
+		}
+		fmt.Fprintf(w, "\n")
 	}
 }

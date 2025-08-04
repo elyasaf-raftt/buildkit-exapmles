@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -26,7 +27,6 @@ func main() {
 	}
 	defer builder.Close()
 
-	fmt.Println("sending build")
 	buildResult, err := builder.BuildFromDockerfile(ctx, argsParsed.FolderPath, "Dockerfile-test", argsParsed.ImageUrl)
 	if err != nil {
 		handleErr(err)
@@ -34,16 +34,18 @@ func main() {
 	fmt.Println("waiting for build")
 	buildResult.Wait()
 
+	fmt.Println("sending build")
+	for _, l := range buildResult.Logs {
+		fmt.Println(l)
+	}
+	var buf bytes.Buffer
+	buildResult.PrintWarnings(&buf)
+	fmt.Println(buf.String())
+
 	if buildResult.Error != nil {
 		fmt.Println("*********** Build Failed **************")
 		fmt.Println(buildResult.ErrorFromFile.String())
 		handleErr(buildResult.Error)
-	}
-
-	for _, l := range buildResult.Logs {
-		// Do Somthing with logs
-		_ = l
-		// fmt.Println(l)
 	}
 
 	fmt.Printf("Successful to build and push image\nUrl: %s\nDigest: %s\n", buildResult.ImageUrl, buildResult.ImageDigest)
