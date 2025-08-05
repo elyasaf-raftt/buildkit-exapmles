@@ -29,8 +29,9 @@ var ErrBuildFailedImageUrlIssue = errors.New("image push failed, review the erro
 type BuildResult struct {
 	// Error holds the error that is returned to the user.
 	Error error
-	// Done indicate that data writing is finished.
+	// Done notify the user that the build process is complete
 	Done bool
+	// done notify the build process is finished, it's used internally
 	done chan any
 	Blah map[string]string
 	// Logs holds the Dockerfile build process logs
@@ -45,8 +46,10 @@ type BuildResult struct {
 	ImageDigest   string
 }
 
-// Function updateSolveResult get the buildkit client.Solve return values,
-// and looks at those values to indicate the issuer error
+// updateSolveResult function gets the buildkit client.Solve returned values,
+// and update the BuildResult struct accordingly.
+//
+// The main thing the function does is update the BuildResult.Error with the error issuer.
 func (res *BuildResult) updateSolveResult(response *client.SolveResponse, err error) {
 	defer func() {
 		res.Done = true
@@ -54,7 +57,7 @@ func (res *BuildResult) updateSolveResult(response *client.SolveResponse, err er
 	}()
 
 	if err != nil {
-		// if the sourceError length is greater than 1, this indicates a Dockerfile error and its a user issue
+		// if the sourceError length is greater than 1, this indicates a Dockerfile error and its a user issue.
 		sourceError := errdefs.Sources(err)
 		if len(sourceError) > 0 {
 			res.Error = fmt.Errorf("%w: %w", ErrBuildFailedUserIssue, err)
@@ -92,7 +95,7 @@ func (res *BuildResult) updateSolveResult(response *client.SolveResponse, err er
 	}
 }
 
-// Collecting logs to be used by who called this package
+// Collecting logs and warnings from build process, and update the BuildResult struct accordingly
 func (res *BuildResult) updateStatus(statusCh chan *client.SolveStatus) {
 	logsR, logsW := io.Pipe()
 	display, err := progressui.NewDisplay(logsW, progressui.PlainMode)

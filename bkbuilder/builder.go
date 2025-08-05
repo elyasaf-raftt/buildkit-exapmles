@@ -16,12 +16,15 @@ import (
 	"google.golang.org/grpc"
 )
 
-// Interface BuildOptions use to support docker build attributes such as build-arg and no-cache
+// Interface BuildOptions use to support docker build attributes, such as build-arg and no-cache.
+//
+// supported attributes: type BuildArgs, type NoCache
 type BuildOptions interface {
 	frontendAttrs(map[string]string)
 }
 
-// BuildArgs implament BuildOptions to support build-arg in build time
+// BuildArgs implement BuildOptions to support build-arg attribute
+// its equivalent to --build-arg from docker build cli.
 type BuildArgs map[string]string
 
 func (ba BuildArgs) frontendAttrs(attrs map[string]string) {
@@ -30,7 +33,8 @@ func (ba BuildArgs) frontendAttrs(attrs map[string]string) {
 	}
 }
 
-// NoCache implament BuildOptions to support no-cache in build time
+// NoCache implement BuildOptions to support no-cache attribute,
+// its equivalent to --no-cache from docker build cli.
 type NoCache bool
 
 func (nc NoCache) frontendAttrs(attrs map[string]string) {
@@ -41,12 +45,13 @@ func (nc NoCache) frontendAttrs(attrs map[string]string) {
 	}
 }
 
-// BkBuilder holds a global parameters that used for each build process
-// for private registries
-// the private registry configuration is loaded using  LoadDefaultConfigFile(io.Writer) from the "github.com/docker/cli/cli/config" package to connect to private registries
-// make sure your private registry exists in one of the default docker configuration files, such as ~/.docker/config.json
+// BkBuilder holds a global parameters used for all build processes.
 type BkBuilder struct {
-	// authProvider manages the private registries configurations
+	// authProvider manages the private registries configurations,
+	//
+	// the private registry configuration is loaded using LoadDefaultConfigFile(io.Writer) from the "github.com/docker/cli/cli/config" package.
+	// make sure your private registry configurations exists at least in one of the default docker configuration files, such as ~/.docker/config.json
+	//
 	// hold Attachable object that return from moby/buildkit/session/auth/authprovider NewDockerAuthProvider function
 	authProvider session.Attachable
 	// holds buildkit client.
@@ -54,8 +59,13 @@ type BkBuilder struct {
 }
 
 // the New function initial BkBuilder and return reference to the BkBuilder.
+//
 // BkBuilder members that are initialized in the function:
-// 1. Client, initial with moby/buildkit client, Used DEDICATED_IMAGE_BUILDING_ADDRESS to connect to buildkit daemon, default 'tcp://localhost:1234'
+//
+// 1. Client, initial with moby/buildkit client, used DEDICATED_IMAGE_BUILDING_ADDRESS to connect to buildkit daemon, default 'tcp://localhost:1234'.
+//
+// 2. authProvider optional, it is initialized if there is any docker configuration
+// loaded with LoadDefaultConfigFile(io.Writer) function from the "github.com/docker/cli/cli/config" package.
 func New(ctx context.Context) (*BkBuilder, error) {
 
 	buildkitClientOpts := []client.ClientOpt{
@@ -97,7 +107,8 @@ func (bkBuilder BkBuilder) Close() {
 }
 
 // Run build and push(always) from dockerfile.
-// the function return reference to BuildResult that caller can used with.
+// the function return reference to BuildResult.
+//
 // if dockerFilename paramater is empty the default 'Dockerfile' is used.
 func (bk *BkBuilder) BuildFromDockerfile(ctx context.Context, folderPath string, dockerFilename string, imageUrl string, buildOptions ...BuildOptions) (*BuildResult, error) {
 
