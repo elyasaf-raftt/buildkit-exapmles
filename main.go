@@ -27,7 +27,9 @@ func main() {
 	}
 	defer builder.Close()
 
-	buildResult, err := builder.BuildFromDockerfile(ctx, argsParsed.FolderPath, "Dockerfile-test", argsParsed.ImageUrl)
+	buildArg := map[string]string{}
+
+	buildResult, err := builder.BuildFromDockerfile(ctx, argsParsed.FolderPath, "Dockerfile-test", argsParsed.ImageUrl, buildArg)
 	if err != nil {
 		handleErr(err)
 	}

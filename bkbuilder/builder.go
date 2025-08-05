@@ -74,7 +74,7 @@ func (bkBuilder BkBuilder) Close() {
 // Run build and push(always) from dockerfile.
 // the function return reference to BuildResult that caller can used with.
 // if dockerFilename paramater is empty the default 'Dockerfile' is used.
-func (bk *BkBuilder) BuildFromDockerfile(ctx context.Context, folderPath string, dockerFilename string, imageUrl string) (*BuildResult, error) {
+func (bk *BkBuilder) BuildFromDockerfile(ctx context.Context, folderPath string, dockerFilename string, imageUrl string, buildArg map[string]string) (*BuildResult, error) {
 
 	buildContext, err := fsutil.NewFS(folderPath)
 	if err != nil {
@@ -106,6 +106,11 @@ func (bk *BkBuilder) BuildFromDockerfile(ctx context.Context, folderPath string,
 				},
 			},
 		},
+	}
+
+	for key, val := range buildArg {
+		AttrKey := fmt.Sprintf("build-arg:%s", key)
+		solveOpt.FrontendAttrs[AttrKey] = val
 	}
 
 	if bk.authProvider != nil {
