@@ -16,6 +16,31 @@ import (
 	"google.golang.org/grpc"
 )
 
+// Interface BuildOptions use to support docker build attributes such as build-arg and no-cache
+type BuildOptions interface {
+	frontendAttrs(map[string]string)
+}
+
+// BuildArgs implament BuildOptions to support build-arg in build time
+type BuildArgs map[string]string
+
+func (ba BuildArgs) frontendAttrs(attrs map[string]string) {
+	for k, v := range ba {
+		attrs[fmt.Sprintf("build-arg:%s", k)] = v
+	}
+}
+
+// NoCache implament BuildOptions to support no-cache in build time
+type NoCache bool
+
+func (nc NoCache) frontendAttrs(attrs map[string]string) {
+	if nc {
+		attrs["no-cache"] = ""
+	} else {
+		attrs["no-cache"] = "false"
+	}
+}
+
 // BkBuilder holds a global parameters that used for each build process
 // for private registries
 // the private registry configuration is loaded using  LoadDefaultConfigFile(io.Writer) from the "github.com/docker/cli/cli/config" package to connect to private registries
@@ -74,7 +99,7 @@ func (bkBuilder BkBuilder) Close() {
 // Run build and push(always) from dockerfile.
 // the function return reference to BuildResult that caller can used with.
 // if dockerFilename paramater is empty the default 'Dockerfile' is used.
-func (bk *BkBuilder) BuildFromDockerfile(ctx context.Context, folderPath string, dockerFilename string, imageUrl string, buildArg map[string]string) (*BuildResult, error) {
+func (bk *BkBuilder) BuildFromDockerfile(ctx context.Context, folderPath string, dockerFilename string, imageUrl string, buildOptions ...BuildOptions) (*BuildResult, error) {
 
 	buildContext, err := fsutil.NewFS(folderPath)
 	if err != nil {
@@ -108,9 +133,8 @@ func (bk *BkBuilder) BuildFromDockerfile(ctx context.Context, folderPath string,
 		},
 	}
 
-	for key, val := range buildArg {
-		AttrKey := fmt.Sprintf("build-arg:%s", key)
-		solveOpt.FrontendAttrs[AttrKey] = val
+	for _, opt := range buildOptions {
+		opt.frontendAttrs(solveOpt.FrontendAttrs)
 	}
 
 	if bk.authProvider != nil {
